@@ -16,7 +16,12 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "YOUR_OPENAI_KEY_HERE")
 
 # Database Configuration
 DATABASE_TYPE = os.getenv("DATABASE_TYPE", "sqlite")  # sqlite or postgresql
-SQLITE_DB_PATH = os.getenv("SQLITE_DB_PATH", "D:/AIBetingBot/betting_bot.db")
+
+# Get the current working directory for database path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+default_db_path = os.path.join(current_dir, "betting_bot.db")
+
+SQLITE_DB_PATH = os.getenv("SQLITE_DB_PATH", default_db_path)
 POSTGRES_URL = os.getenv("POSTGRES_URL", "postgresql://user:password@localhost/betting_bot")
 
 # Voice Configuration
