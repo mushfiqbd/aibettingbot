@@ -2063,7 +2063,8 @@ Try asking me about a specific team or sport!
                 ASKING_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, self.get_bet_amount)],
                 ASKING_TEAM: [CallbackQueryHandler(self.team_selected, pattern="^team_")]
             },
-            fallbacks=[CommandHandler("start", self.start)]
+            fallbacks=[CommandHandler("start", self.start)],
+            per_message=True
         )
         self.app.add_handler(bet_conv)
         
@@ -2082,7 +2083,8 @@ Try asking me about a specific team or sport!
                     MessageHandler(filters.PHOTO, self.handle_deposit_proof)
                 ]
             },
-            fallbacks=[CommandHandler("start", self.start)]
+            fallbacks=[CommandHandler("start", self.start)],
+            per_message=True
         )
         self.app.add_handler(deposit_conv)
         
@@ -2095,7 +2097,8 @@ Try asking me about a specific team or sport!
                     MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_withdraw_amount)
                 ]
             },
-            fallbacks=[CommandHandler("start", self.start)]
+            fallbacks=[CommandHandler("start", self.start)],
+            per_message=True
         )
         self.app.add_handler(withdraw_conv)
         
@@ -2105,7 +2108,8 @@ Try asking me about a specific team or sport!
             states={
                 ASKING_WALLET_ADDRESS: [MessageHandler(filters.TEXT & ~filters.COMMAND, self.admin_handle_wallet_address)]
             },
-            fallbacks=[CommandHandler("start", self.start)]
+            fallbacks=[CommandHandler("start", self.start)],
+            per_message=True
         )
         self.app.add_handler(wallet_conv)
         
