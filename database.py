@@ -1,7 +1,10 @@
 import sqlite3
 import os
+import logging
 from datetime import datetime
 from config import SQLITE_DB_PATH, INITIAL_BALANCE, DATABASE_TYPE
+
+logger = logging.getLogger(__name__)
 
 
 class Database:
@@ -103,6 +106,48 @@ class Database:
                 updated_by INTEGER,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (updated_by) REFERENCES users(user_id)
+            )
+        """)
+
+        # Create deposits table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS deposits (
+                tx_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                amount REAL NOT NULL,
+                method TEXT DEFAULT 'BTC',
+                status TEXT DEFAULT 'pending',
+                transaction_id TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                processed_at TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(user_id)
+            )
+        """)
+
+        # Create withdrawals table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS withdrawals (
+                tx_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                amount REAL NOT NULL,
+                method TEXT NOT NULL,
+                wallet_address TEXT NOT NULL,
+                status TEXT DEFAULT 'pending',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                processed_at TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(user_id)
+            )
+        """)
+
+        # Create admin_logs table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS admin_logs (
+                log_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                action TEXT NOT NULL,
+                details TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(user_id)
             )
         """)
 
@@ -444,6 +489,142 @@ class Database:
         except Exception as e:
             logger.error(f"Error getting wallet addresses: {e}")
             return []
+        finally:
+            conn.close()
+
+
+    def get_all_users(self):
+        """Get all users"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT * FROM users ORDER BY created_at DESC")
+            results = cursor.fetchall()
+            return [dict(row) for row in results]
+        except Exception as e:
+            logger.error(f"Error getting all users: {e}")
+            return []
+        finally:
+            conn.close()
+
+    def get_pending_deposits(self):
+        """Get pending deposits"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("""
+                SELECT * FROM deposits 
+                WHERE status = 'pending' 
+                ORDER BY created_at DESC
+            """)
+            results = cursor.fetchall()
+            return [dict(row) for row in results]
+        except Exception as e:
+            logger.error(f"Error getting pending deposits: {e}")
+            return []
+        finally:
+            conn.close()
+
+    def get_pending_withdrawals(self):
+        """Get pending withdrawals"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("""
+                SELECT * FROM withdrawals 
+                WHERE status = 'pending' 
+                ORDER BY created_at DESC
+            """)
+            results = cursor.fetchall()
+            return [dict(row) for row in results]
+        except Exception as e:
+            logger.error(f"Error getting pending withdrawals: {e}")
+            return []
+        finally:
+            conn.close()
+
+    def get_stats(self):
+        """Get platform statistics"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        try:
+            # Get user stats
+            cursor.execute("SELECT COUNT(*) as total_users FROM users")
+            total_users = cursor.fetchone()[0]
+            
+            cursor.execute("SELECT SUM(balance) as total_balance FROM users")
+            total_balance = cursor.fetchone()[0] or 0
+            
+            cursor.execute("SELECT COUNT(*) as total_bets FROM bets")
+            total_bets = cursor.fetchone()[0]
+            
+            cursor.execute("SELECT COUNT(*) as total_wins FROM bets WHERE result = 'win'")
+            total_wins = cursor.fetchone()[0]
+            
+            cursor.execute("SELECT COUNT(*) as total_losses FROM bets WHERE result = 'loss'")
+            total_losses = cursor.fetchone()[0]
+            
+            return {
+                'total_users': total_users,
+                'total_balance': total_balance,
+                'total_bets': total_bets,
+                'total_wins': total_wins,
+                'total_losses': total_losses
+            }
+        except Exception as e:
+            logger.error(f"Error getting stats: {e}")
+            return {}
+        finally:
+            conn.close()
+
+    def request_deposit(self, user_id, amount):
+        """Request a deposit"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("""
+                INSERT INTO deposits (user_id, amount, status, created_at)
+                VALUES (?, ?, 'pending', CURRENT_TIMESTAMP)
+            """, (user_id, amount))
+            conn.commit()
+            return cursor.lastrowid
+        except Exception as e:
+            logger.error(f"Error requesting deposit: {e}")
+            return None
+        finally:
+            conn.close()
+
+    def request_withdrawal(self, user_id, amount, method, wallet_address):
+        """Request a withdrawal"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("""
+                INSERT INTO withdrawals (user_id, amount, method, wallet_address, status, created_at)
+                VALUES (?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP)
+            """, (user_id, amount, method, wallet_address))
+            conn.commit()
+            return cursor.lastrowid
+        except Exception as e:
+            logger.error(f"Error requesting withdrawal: {e}")
+            return None
+        finally:
+            conn.close()
+
+    def log_action(self, user_id, action, details):
+        """Log admin action"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("""
+                INSERT INTO admin_logs (user_id, action, details, created_at)
+                VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+            """, (user_id, action, details))
+            conn.commit()
+            return True
+        except Exception as e:
+            logger.error(f"Error logging action: {e}")
+            return False
         finally:
             conn.close()
 
